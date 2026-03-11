@@ -1,0 +1,27 @@
+name: Close Polymarket Positions
+
+on:
+  workflow_dispatch: # запускается вручную или через API
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: pip install py-clob-client requests
+
+      - name: Run Python bot
+        run: python close.py
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          WALLET: ${{ secrets.WALLET }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
