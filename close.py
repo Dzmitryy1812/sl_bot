@@ -11,6 +11,25 @@ REQUEST_TIMEOUT_SECONDS = 15
 DEBUG_LOG_PATH = os.path.join(os.path.dirname(__file__), "debug-7510a5.log")
 DEBUG_SESSION_ID = "7510a5"
 
+# ─── Proxy setup ───────────────────────────────────────────────
+PROXY_URL = (
+    os.environ.get("HTTP_PROXY")
+    or os.environ.get("HTTPS_PROXY")
+    or os.environ.get("http_proxy")
+    or os.environ.get("https_proxy")
+)
+PROXIES = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else {}
+
+if PROXIES:
+    _original_session_init = requests.Session.__init__
+
+    def _patched_session_init(self, *args, **kwargs):
+        _original_session_init(self, *args, **kwargs)
+        self.proxies.update(PROXIES)
+
+    requests.Session.__init__ = _patched_session_init
+# ────────────────────────────────────────────────────────────────
+
 # region agent log
 def _dbg(hypothesis_id: str, location: str, message: str, data: dict, run_id: str = "pre-fix") -> None:
     payload = {
@@ -22,8 +41,19 @@ def _dbg(hypothesis_id: str, location: str, message: str, data: dict, run_id: st
         "data": data,
         "timestamp": int(time.time() * 1000),
     }
+    line = json.dumps(payload, ensure_ascii=False) + "\n"
     with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        f.write(line)
+    try:
+        with open(
+            os.path.join(os.path.dirname(__file__), "debug-10ada1.log"),
+            "a",
+            encoding="utf-8",
+        ) as f2:
+            f2.write(line)
+    except Exception:
+        # отдельный debug режим, не должен ломать основную логику
+        pass
 # endregion agent log
 
 WALLET = os.environ.get("WALLET")
@@ -40,6 +70,28 @@ if not WALLET or not PRIVATE_KEY:
 SELL_PRICE = float(os.environ.get("CLOSE_SELL_PRICE", "0.01"))
 USE_BEST_BID = os.environ.get("CLOSE_USE_BEST_BID", "1").strip() not in {"0", "false", "False"}
 ORDER_TYPE_STR = os.environ.get("CLOSE_ORDER_TYPE", "FAK").strip().upper()
+
+# ─── Диагностика прокси ────────────────────────────────────────
+_dbg(
+    "H0",
+    "close.py:proxy_check",
+    "proxy config",
+    {"proxyUrl": PROXY_URL[:20] + "..." if PROXY_URL else "NONE", "hasProxy": bool(PROXIES)},
+)
+
+if PROXIES:
+    try:
+        ip_resp = requests.get("https://ifconfig.me", timeout=10)
+        print(f"External IP (via proxy): {ip_resp.text.strip()}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"Proxy connectivity test FAILED: {exc}")
+        _dbg(
+            "H0",
+            "close.py:proxy_test",
+            "proxy test failed",
+            {"errorType": type(exc).__name__, "error": str(exc)},
+        )
+# ────────────────────────────────────────────────────────────────
 
 client = ClobClient(
     "https://clob.polymarket.com",

@@ -1,15 +1,11 @@
 name: Close Polymarket Positions
 
 on:
-  workflow_dispatch: # запускается вручную или через API
+  workflow_dispatch:
 
 jobs:
   close:
     runs-on: ubuntu-latest
-    env:
-      HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
-      HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
-      NO_PROXY: ${{ secrets.NO_PROXY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -17,20 +13,40 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
       - name: Install dependencies
+        env:
+          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
+          HTTPS_PROXY: ${{ secrets.HTTP_PROXY }}
+          http_proxy: ${{ secrets.HTTP_PROXY }}
+          https_proxy: ${{ secrets.HTTP_PROXY }}
         run: pip install py-clob-client requests
+
+      - name: Test proxy
+        env:
+          HTTPS_PROXY: ${{ secrets.HTTP_PROXY }}
+        run: |
+          echo "=== IP через прокси ==="
+          curl -x "$HTTPS_PROXY" -s https://ifconfig.me
+          echo ""
+          echo "=== Polymarket доступность ==="
+          curl -x "$HTTPS_PROXY" -s -o /dev/null -w "HTTP %{http_code}" https://clob.polymarket.com/
+          echo ""
 
       - name: Clear debug log
         run: python -c "from pathlib import Path; p=Path('debug-7510a5.log'); p.unlink(missing_ok=True)"
 
       - name: Run Python bot
-        run: python close.py
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           WALLET: ${{ secrets.WALLET }}
-   
+          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
+          HTTPS_PROXY: ${{ secrets.HTTP_PROXY }}
+          http_proxy: ${{ secrets.HTTP_PROXY }}
+          https_proxy: ${{ secrets.HTTP_PROXY }}
+        run: python close.py
+
       - name: Print debug log (always)
         if: ${{ always() }}
         run: python -c "from pathlib import Path; p=Path('debug-7510a5.log'); print(p.read_text(encoding='utf-8') if p.exists() else 'debug-7510a5.log not found')"
