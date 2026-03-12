@@ -8,28 +8,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: 'pip' # Включает кэширование для ускорения запусков
 
       - name: Install dependencies
         env:
           HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
           HTTPS_PROXY: ${{ secrets.HTTP_PROXY }}
-        run: pip install py-clob-client requests
+        run: |
+          python -m pip install --upgrade pip
+          # Пробуем установить из requirements.txt, если его нет — устанавливаем напрямую
+          if [ -f requirements.txt ]; then 
+            pip install -r requirements.txt 
+          else 
+            pip install py-clob-client requests python-dotenv
+          fi
 
       - name: Test proxy
         env:
           HTTPS_PROXY: ${{ secrets.HTTP_PROXY }}
         run: |
-          echo "=== IP через прокси ==="
-          curl -x "$HTTPS_PROXY" -s https://ifconfig.me
+          echo "=== Проверка IP через прокси ==="
+          curl -x "$HTTPS_PROXY" -s https://ifconfig.me || echo "Прокси не отвечает"
           echo ""
-          echo "=== Polymarket доступность ==="
-          curl -x "$HTTPS_PROXY" -s -o /dev/null -w "HTTP %{http_code}" https://clob.polymarket.com/
+          echo "=== Доступность Polymarket ==="
+          curl -x "$HTTPS_PROXY" -s -o /dev/null -w "HTTP %{http_code}" https://clob.polymarket.com/ || echo "API не отвечает"
           echo ""
 
       - name: Clear debug log
@@ -45,7 +54,7 @@ jobs:
 
       - name: Print debug log (always)
         if: ${{ always() }}
-        run: python -c "from pathlib import Path; p=Path('debug-7510a5.log'); print(p.read_text(encoding='utf-8') if p.exists() else 'debug-7510a5.log not found')"
+        run: python -c "from pathlib import Path; p=Path('debug-7510a5.log'); print(p.read_text(encoding='utf-8') if p.exists() else 'Лог-файл пуст или не создан')"
 
       - name: Upload debug log (always)
         if: ${{ always() }}
