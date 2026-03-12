@@ -98,6 +98,7 @@ def close_all_positions():
     closed_positions = 0
     failed_positions = 0
     order_type = _resolve_order_type(ORDER_TYPE_STR)
+    order_type_label = getattr(order_type, "name", str(order_type))
 
     print(f"Fetched {len(positions)} positions for wallet {WALLET}")
     _dbg(
@@ -108,7 +109,8 @@ def close_all_positions():
             "positionsCount": len(positions),
             "useBestBid": USE_BEST_BID,
             "sellPriceFallback": SELL_PRICE,
-            "orderType": order_type.name,
+            "orderType": order_type_label,
+            "orderTypePyType": type(order_type).__name__,
         },
     )
 
@@ -167,13 +169,13 @@ def close_all_positions():
         try:
             signed = client.create_order(order)
             res = client.post_order(signed, order_type)
-            print(f"Posted SELL {size} @ {price} ({order_type.name}) for token {token}. Response: {res}")
+            print(f"Posted SELL {size} @ {price} ({order_type_label}) for token {token}. Response: {res}")
             closed_positions += 1
             _dbg(
                 "H5",
                 "close.py:close_all_positions:post_order",
                 "order posted",
-                {"token": token, "size": size, "price": price, "orderType": order_type.name, "responseType": type(res).__name__},
+                {"token": token, "size": size, "price": price, "orderType": order_type_label, "responseType": type(res).__name__},
             )
         except Exception as exc:  # noqa: BLE001
             failed_positions += 1
@@ -182,7 +184,7 @@ def close_all_positions():
                 "H5",
                 "close.py:close_all_positions:post_order",
                 "order post failed",
-                {"token": token, "size": size, "price": price, "orderType": order_type.name, "errorType": type(exc).__name__, "error": str(exc)},
+                {"token": token, "size": size, "price": price, "orderType": order_type_label, "errorType": type(exc).__name__, "error": str(exc)},
             )
 
     summary = (
