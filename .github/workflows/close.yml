@@ -18,10 +18,23 @@ jobs:
       - name: Install dependencies
         run: pip install py-clob-client requests
 
+      - name: Clear debug log
+        run: python -c "from pathlib import Path; p=Path('debug-7510a5.log'); p.unlink(missing_ok=True)"
+
       - name: Run Python bot
         run: python close.py
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           WALLET: ${{ secrets.WALLET }}
-          TG_TOKEN: ${{ secrets.TG_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+   
+      - name: Print debug log (always)
+        if: ${{ always() }}
+        run: python -c "from pathlib import Path; p=Path('debug-7510a5.log'); print(p.read_text(encoding='utf-8') if p.exists() else 'debug-7510a5.log not found')"
+
+      - name: Upload debug log (always)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-7510a5-log
+          path: debug-7510a5.log
+          if-no-files-found: ignore
