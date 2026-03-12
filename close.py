@@ -15,24 +15,6 @@ client = ClobClient(
 )
 client.set_api_creds(client.create_or_derive_api_creds())
 
-
-def send_telegram_message(text):
-    tg_token = os.environ.get("TG_TOKEN")
-    tg_chat = os.environ.get("TG_CHAT_ID")
-
-    if not tg_token or not tg_chat:
-        return
-
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{tg_token}/sendMessage",
-            json={"chat_id": tg_chat, "text": text},
-            timeout=REQUEST_TIMEOUT_SECONDS,
-        )
-    except requests.RequestException as exc:
-        print(f"Failed to send Telegram notification: {exc}")
-
-
 def close_all_positions():
     url = f"https://data-api.polymarket.com/positions?user={WALLET}"
     try:
@@ -42,15 +24,19 @@ def close_all_positions():
     except requests.RequestException as exc:
         error = f"Failed to fetch positions: {exc}"
         print(error)
-        send_telegram_message(f"⚠️ {error}")
         return
 
     closed_positions = 0
     failed_positions = 0
 
     for p in positions:
-        size = float(p.get("size", p.get("tokensHeld", 0)) or 0)
         token = p.get("asset")
+        try:
+            size_raw = p.get("size", p.get("tokensHeld", 0))
+            size = float(size_raw or 0)
+        except Exception as exc:  # noqa: BLE001
+            failed_positions += 1
+            continue
 
         if not token:
             failed_positions += 1
@@ -79,7 +65,6 @@ def close_all_positions():
         f"Positions close complete. Success: {closed_positions}, Failed: {failed_positions}"
     )
     print(summary)
-    send_telegram_message(f"🚨 {summary}")
 
 if __name__ == "__main__":
     close_all_positions()
